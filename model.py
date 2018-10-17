@@ -2,13 +2,15 @@ import tensorflow as tf
 import P3D
 import T3D
 from SamplingRNNCell import SamplingRNNCell
+from Pseudo3DConv import p_conv3d
 from settings import *
 slim = tf.contrib.slim
+
 
 layer_norm = lambda x: tf.contrib.layers.layer_norm(inputs=x, center=True, scale=True, activation_fn=None, trainable=True)
 
 def ST_Conv_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, HEIGHT, WIDTH, CHANNELS])
+    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, HEIGHT, WIDTH, RGB_CHANNEL])
     with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
         print('input_shape:', video.shape.as_list())
         net = slim.convolution(video, num_outputs=64, kernel_size=[3,12,12], stride=[1,6,6], padding="VALID")
@@ -47,7 +49,7 @@ def ST_Conv_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reu
 
 
 def CNN_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, CHANNELS])
+    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, RGB_CHANNEL])
     with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
         seq_net = []
         for idx in range(seq_len):
@@ -57,7 +59,7 @@ def CNN_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=N
 
 
 def P3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, CHANNELS])
+    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, RGB_CHANNEL])
     with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
         seq_net = []
         for idx in range(seq_len):
@@ -67,7 +69,7 @@ def P3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=N
 
 
 def T3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, CHANNELS])
+    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, RGB_CHANNEL])
     with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
         seq_net = []
         for idx in range(seq_len):
@@ -79,8 +81,8 @@ def T3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=N
 def inference(input_images, targets_normalized, keep_prob):
     input_images = -1.0 + 2.0 * tf.cast(input_images, tf.float32) / 255.0
     #input_images.set_shape([(LEFT_CONTEXT+SEQ_LEN) * BATCH_SIZE, HEIGHT, WIDTH, CHANNELS])
-    visual_conditions_reshaped = P3D_Vision_Simple(image=input_images, keep_prob=keep_prob, 
-                                                     batch_size=BATCH_SIZE, seq_len=SEQ_LEN, scope="P3D", reuse=tf.AUTO_REUSE)
+    visual_conditions_reshaped = ST_Conv_Vision_Simple(image=input_images, keep_prob=keep_prob, 
+                                                     batch_size=BATCH_SIZE, seq_len=SEQ_LEN, scope="STC", reuse=tf.AUTO_REUSE)
 
     visual_conditions = tf.reshape(visual_conditions_reshaped, [BATCH_SIZE, SEQ_LEN, -1])
     visual_conditions = tf.nn.dropout(x=visual_conditions, keep_prob=keep_prob)

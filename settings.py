@@ -6,20 +6,30 @@
 # LEFT_CONTEXT is the number of extra frames from the past that we append to the left of our input sequence.
 # We need to do it because 3D convolution with "VALID" padding "eats" frames from the left, decreasing the sequence length.
 # One should be careful here to maintain the model's causality.
-CROP_SIZE=160  
-RGB_CHANNEL = 3
-BLOCK_EXPANSION = 4
-VISION_FEATURE_SIZE = 128
 
+# P3D Settings
+BLOCK_EXPANSION = 4
+
+# T3D Settings
+BN_SIZE=4  #Expansion rate for Bottleneck structure.
+GROWTH_RATE=32 #Fixed number of out_channels for some layers.
+START_CHANNEL=64  #number of channels before entering first block structure.
+
+# Common Settings
+GPU_NUM = 2
+VISION_FEATURE_SIZE = 128
+CROP_SIZE=160
 SEQ_LEN = 5 
-BATCH_SIZE = 10 
+BATCH_SIZE = 8 
 LEFT_CONTEXT = 5
 LEARNING_RATE = 1e-5
+KEEP_PROB_TRAIN = 0.5
+#IS_DA=False #whether or not to use data augmentation
 
 # These are the input image parameters.
 HEIGHT = 480
 WIDTH = 640
-CHANNELS = 3 # RGB
+RGB_CHANNEL = 3
 
 # The parameters of the LSTM that keeps the model state.
 RNN_SIZE = 32

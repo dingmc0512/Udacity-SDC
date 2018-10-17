@@ -158,7 +158,6 @@ class make_block():
 
 #build structure of the p3d network.
 def inference_p3d(frames,feature_size,keep_prob,batch_size,is_train):
-    global IS_TRAIN
     IS_TRAIN = is_train
 
     cnt=0
