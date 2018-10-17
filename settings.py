@@ -16,14 +16,15 @@ GROWTH_RATE=32 #Fixed number of out_channels for some layers.
 START_CHANNEL=64  #number of channels before entering first block structure.
 
 # Common Settings
-GPU_NUM = 2
+GPU_NUM = 3
 VISION_FEATURE_SIZE = 128
 CROP_SIZE=160
 SEQ_LEN = 5 
-BATCH_SIZE = 8 
+BATCH_SIZE = 10 
 LEFT_CONTEXT = 5
 LEARNING_RATE = 1e-5
 KEEP_PROB_TRAIN = 0.5
+NUM_EPOCHS=20
 #IS_DA=False #whether or not to use data augmentation
 
 # These are the input image parameters.
