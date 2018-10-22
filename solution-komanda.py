@@ -51,9 +51,21 @@ def compute_loss(name_scope,out_gt,out_regress,targets_normalized,aux_cost_weigh
     tf.summary.scalar(name_scope+"_rmse_gt", tf.sqrt(mse_gt))
     tf.summary.scalar(name_scope+"_rmse_infer", tf.sqrt(mse_autoregressive))
 
+    # T3D
+    '''
     weight_loss = tf.losses.get_regularization_loss()
+    tf.summary.scalar(name_scope+"_weight_loss", weight_loss)
+    '''
+
+    # P3D
+    '''
+    weight_loss=tf.get_collection('weightdecay_losses')
+    tf.summary.scalar(name_scope+'_weight_loss',tf.reduce_mean(weight_loss))
+    '''
+
+    #tf.add_to_collection('weight_loss', tf.reduce_mean(weight_loss))
     total_loss  = mse_autoregressive_steering + aux_cost_weight * (1 * mse_gt + 4 * mse_autoregressive)
-    total_loss  = total_loss + weight_loss
+    total_loss  = total_loss #+ weight_loss
 
     tf.summary.scalar(name_scope+'_total_loss',tf.sqrt(total_loss))
     return total_loss
@@ -94,7 +106,7 @@ with graph.as_default():
 
     input_images = inputs_placeholder
     #input_images = tf.stack([tf.image.resize_images(tf.image.decode_png(tf.read_file('../' + folder_path + x)), (HEIGHT, WIDTH))
-    #                        for x in tf.unstack(tf.reshape(inputs_placeholder, shape=[(LEFT_CONTEXT+SEQ_LEN) * BATCH_SIZE * GPU_NUM]))])
+    #                         for x in tf.unstack(tf.reshape(inputs_placeholder, shape=[(LEFT_CONTEXT+SEQ_LEN) * BATCH_SIZE * GPU_NUM]))])
     targets_normalized = (labels_placeholder - mean) / std
 
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
@@ -146,8 +158,8 @@ with graph.as_default():
         optim_op_group=tf.group(apply_gradient_op)
     
     summaries = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter('./visual_logs/train', graph=graph)
-    valid_writer = tf.summary.FileWriter('./visual_logs/test', graph=graph)
+    train_writer = tf.summary.FileWriter('./visual_logs/'+args.model+'/train', graph=graph)
+    valid_writer = tf.summary.FileWriter('./visual_logs/'+args.model+'/test', graph=graph)
     saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)
 
 
@@ -163,8 +175,10 @@ def do_epoch(session, sequences, mode):
     final_state_gt_cur, final_state_regress_cur = None, None
     acc_loss = np.float128(0.0)
 
+    '''
     if not os.path.exists("./bad_case"):
         os.mkdir("./bad_case")
+    '''
 
     duration=0
     batch_generator = BatchGenerator(sequence=sequences, seq_len=SEQ_LEN, batch_size=BATCH_SIZE * GPU_NUM)
@@ -175,6 +189,8 @@ def do_epoch(session, sequences, mode):
         image_data = feed_inputs[1]
         feed_dict = {inputs_placeholder : image_data, labels_placeholder : feed_targets}
         
+        #print('weight_loss: ' + str(session.run(tf.get_collection('weight_loss')[0])))
+
         if final_state_regress_cur is not None:           
             feed_dict.update({final_state_regress : final_state_regress_cur})
         if final_state_gt_cur is not None:          
@@ -213,12 +229,14 @@ def do_epoch(session, sequences, mode):
             print('Step %d: %.2f sec -->loss : %.4f ==== rsme: %.4f' % (step+1, duration, np.mean(loss), np.sqrt(np.mean(stats[-1]))))
             duration=0 
 
+            '''
             if loss_cur is None: 
                 loss_cur = loss
             if loss_cur * 1.4 < loss:
             	for img in image_path:
             		shutil.copyfile(os.path.join('../train_val',img), os.path.join('./bad_case',img.split('/')[1] + '_' + str(global_valid_step)))
             loss_cur = loss
+            '''
 
         elif mode == "test":
             feed_dict.update({folder_path : 'test/'})
@@ -269,12 +287,16 @@ def run():
                 print('\r', "SAVED at epoch %d" % epoch)
 
                 # write validation result to file
+                '''
                 with open(MODEL_PATH+"/valid-predictions-epoch%d" % epoch, "w") as out:
                     result = np.float128(0.0)
                     for img, stats in valid_predictions.items():
                         print(img, stats, file=out)
                         result += stats[-1]
-                
+                '''
+                result = np.float128(0.0)
+                for img, stats in valid_predictions.items():
+                    result += stats[-1]
                 with open(MODEL_PATH+"/best_valid_score", "w") as out:
                 	print("Validation unnormalized RMSE:", np.sqrt(result / len(valid_predictions)), file=out)
 

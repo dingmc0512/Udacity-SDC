@@ -1,6 +1,8 @@
 import tensorflow as tf
 import P3D
 import T3D
+import ResNet
+import STConv
 from SamplingRNNCell import SamplingRNNCell
 from Pseudo3DConv import p_conv3d
 from settings import *
@@ -9,71 +11,52 @@ slim = tf.contrib.slim
 
 layer_norm = lambda x: tf.contrib.layers.layer_norm(inputs=x, center=True, scale=True, activation_fn=None, trainable=True)
 
-def ST_Conv_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, HEIGHT, WIDTH, RGB_CHANNEL])
-    with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
-        print('input_shape:', video.shape.as_list())
-        net = slim.convolution(video, num_outputs=64, kernel_size=[3,12,12], stride=[1,6,6], padding="VALID")
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        aux1 = slim.fully_connected(tf.reshape(net[:, -seq_len:, :, :, :], [batch_size, seq_len, -1]), 128, activation_fn=None)
-        print('conv1_shape:', net.shape.as_list())
-
-        net = slim.convolution(net, num_outputs=64, kernel_size=[2,5,5], stride=[1,2,2], padding="VALID")
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        aux2 = slim.fully_connected(tf.reshape(net[:, -seq_len:, :, :, :], [batch_size, seq_len, -1]), 128, activation_fn=None)
-        print('conv2_shape:', net.shape.as_list())
-
-        net = slim.convolution(net, num_outputs=64, kernel_size=[2,5,5], stride=[1,1,1], padding="VALID")
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        aux3 = slim.fully_connected(tf.reshape(net[:, -seq_len:, :, :, :], [batch_size, seq_len, -1]), 128, activation_fn=None)
-        print('conv3_shape:', net.shape.as_list())
-
-        net = slim.convolution(net, num_outputs=64, kernel_size=[2,5,5], stride=[1,1,1], padding="VALID")
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        # at this point the tensor 'net' is of shape batch_size x seq_len x ...
-        aux4 = slim.fully_connected(tf.reshape(net, [batch_size, seq_len, -1]), 128, activation_fn=None)
-        print('conv4_shape:', net.shape.as_list())
-
-        net = slim.fully_connected(tf.reshape(net, [batch_size, seq_len, -1]), 1024, activation_fn=tf.nn.relu)
-        print('fc1_shape:', net.shape.as_list())
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        net = slim.fully_connected(net, 512, activation_fn=tf.nn.relu)
-        print('fc2_shape:', net.shape.as_list())
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        net = slim.fully_connected(net, 256, activation_fn=tf.nn.relu)
-        print('fc3_shape:', net.shape.as_list())
-        net = tf.nn.dropout(x=net, keep_prob=keep_prob)
-        net = slim.fully_connected(net, 128, activation_fn=None)
-        print('fc4_shape:', net.shape.as_list())
-        return layer_norm(tf.nn.elu(net + aux1 + aux2 + aux3 + aux4)) # aux[1-4] are residual connections (shortcuts)
+def ST_Conv_Global_Vision_Simple(inputs, keep_prob, seq_len, scope=None, reuse=None):
+    with tf.variable_scope(scope, 'Vision', [inputs], reuse=reuse):
+        return STConv.inference(inputs, keep_prob, seq_len)
 
 
-def CNN_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, RGB_CHANNEL])
-    with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
+def ST_Conv_Local_Vision_Simple(inputs, keep_prob, seq_len, scope=None, reuse=None):
+    with tf.variable_scope(scope, 'Vision', [inputs], reuse=reuse):
         seq_net = []
         for idx in range(seq_len):
-            net = P3D.inference_p3d(video[:,LEFT_CONTEXT+idx,:,:,:],VISION_FEATURE_SIZE,keep_prob,batch_size,(keep_prob!=1.0))
+            net = STConv.inference(inputs[:,LEFT_CONTEXT+idx,:,:,:], VISION_FEATURE_SIZE, keep_prob)
             seq_net.append(net)
         return tf.stack(seq_net, axis=1)
 
 
-def P3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, RGB_CHANNEL])
-    with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
+def CNN_Vision_Simple(inputs, keep_prob, seq_len, scope=None, reuse=None):
+    with tf.variable_scope(scope, 'Vision', [inputs], reuse=reuse):
         seq_net = []
         for idx in range(seq_len):
-            net = P3D.inference_p3d(video[:,idx+1:LEFT_CONTEXT+idx+1,:,:,:],VISION_FEATURE_SIZE,keep_prob,batch_size,(keep_prob!=1.0))
+            net = P3D.inference_p3d(inputs[:,LEFT_CONTEXT+idx,:,:,:],VISION_FEATURE_SIZE,keep_prob)
             seq_net.append(net)
         return tf.stack(seq_net, axis=1)
 
 
-def T3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=None):
-    video = tf.reshape(image, shape=[batch_size, LEFT_CONTEXT + seq_len, CROP_SIZE, CROP_SIZE, RGB_CHANNEL])
-    with tf.variable_scope(scope, 'Vision', [image], reuse=reuse):
+def P3D_Vision_Simple(inputs, keep_prob, seq_len, scope=None, reuse=None):
+    with tf.variable_scope(scope, 'Vision', [inputs], reuse=reuse):
         seq_net = []
         for idx in range(seq_len):
-            net = T3D.inference_t3d(video[:,idx+1:LEFT_CONTEXT+idx+1,:,:,:],VISION_FEATURE_SIZE,keep_prob,batch_size,(keep_prob!=1.0))
+            net = P3D.inference_p3d(inputs[:,idx+1:LEFT_CONTEXT+idx+1,:,:,:],VISION_FEATURE_SIZE,keep_prob)
+            seq_net.append(net)
+        return tf.stack(seq_net, axis=1)
+
+
+def T3D_Vision_Simple(inputs, keep_prob, seq_len, scope=None, reuse=None):
+    with tf.variable_scope(scope, 'Vision', [inputs], reuse=reuse):
+        seq_net = []
+        for idx in range(seq_len):
+            net = T3D.inference_t3d(inputs[:,idx+1:LEFT_CONTEXT+idx+1,:,:,:],VISION_FEATURE_SIZE,keep_prob)
+            seq_net.append(net)
+        return tf.stack(seq_net, axis=1)
+
+
+def RetNet_Vision_Simple(inputs, keep_prob, seq_len, scope=None, reuse=None):
+    with tf.variable_scope(scope, 'Vision', [inputs], reuse=reuse):
+        seq_net = []
+        for idx in range(seq_len):
+            net = ResNet.inference(inputs[:,idx+1:LEFT_CONTEXT+idx+1,:,:,:],VISION_FEATURE_SIZE,keep_prob)
             seq_net.append(net)
         return tf.stack(seq_net, axis=1)
 
@@ -81,10 +64,14 @@ def T3D_Vision_Simple(image, keep_prob, batch_size, seq_len, scope=None, reuse=N
 def inference(input_images, targets_normalized, keep_prob):
     input_images = -1.0 + 2.0 * tf.cast(input_images, tf.float32) / 255.0
     #input_images.set_shape([(LEFT_CONTEXT+SEQ_LEN) * BATCH_SIZE, HEIGHT, WIDTH, CHANNELS])
-    visual_conditions_reshaped = ST_Conv_Vision_Simple(image=input_images, keep_prob=keep_prob, 
-                                                     batch_size=BATCH_SIZE, seq_len=SEQ_LEN, scope="STC", reuse=tf.AUTO_REUSE)
+    print('input_shape: ', input_images.shape.as_list())
 
-    visual_conditions = tf.reshape(visual_conditions_reshaped, [BATCH_SIZE, SEQ_LEN, -1])
+    input_images = tf.reshape(input_images, shape=[-1, LEFT_CONTEXT + SEQ_LEN, HEIGHT, WIDTH, RGB_CHANNEL])
+    visual_conditions = RetNet_Vision_Simple(inputs=input_images, keep_prob=keep_prob, 
+                                                     seq_len=SEQ_LEN, scope="P3D", reuse=tf.AUTO_REUSE)
+
+    print('vfeat_shape: ', visual_conditions.shape.as_list())
+    visual_conditions = tf.reshape(visual_conditions, [BATCH_SIZE, SEQ_LEN, -1])
     visual_conditions = tf.nn.dropout(x=visual_conditions, keep_prob=keep_prob)
     
     rnn_inputs_with_ground_truth = (visual_conditions, targets_normalized)
@@ -123,4 +110,5 @@ def inference(input_images, targets_normalized, keep_prob):
                           sequence_length=[SEQ_LEN]*BATCH_SIZE, initial_state=None, dtype=tf.float32,
                           swap_memory=True, time_major=False)
 
+    print('output_shape: ', out_regress.shape.as_list())
     return out_gt, final_state_gt, out_regress, final_state_regress

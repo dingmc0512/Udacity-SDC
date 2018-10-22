@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import PIL.Image as Image
 import os
+import cv2
 from DataAugmenter import DataAugmenter
 from settings import *
 DA=DataAugmenter()
@@ -17,17 +18,20 @@ class BatchGenerator(object):
         self.indices = [(i*chunk_size) % len(sequence) for i in range(batch_size)]
         # |i+0 - - -|i+1 - - -|i+2 - - -|i+3 - - -| ... |
 
+
     #is_da:True if using data augmentation. 
-    def decode_image(self, filenames, is_da=False):
+    def decode_image(self, filenames, is_da=True):
         images = []
         for filename in filenames:
-            img=Image.open(self.dir_path + filename)
-            img_data=np.array(img)
-            images.append(img_data)
+            img = Image.open(self.dir_path + filename)
+            img = np.array(cv2.resize(np.array(img),(HEIGHT, WIDTH)))
+            images.append(img)
         if is_da:
-            return DA.Apply(images)
+            images = DA.Apply(images)
         else:
-            return images
+            images = images
+        return np.array(images).astype(np.float32)
+
 
     def next(self):
         while True:
