@@ -3,7 +3,7 @@ from settings import *
 from layers import *
 
 IS_TRAIN = None
-
+NUM_FEAT = 3
 
 def get_conv_weight(name,kshape,wd=0.0005):
 	with tf.device('/cpu:0'):
@@ -137,7 +137,8 @@ class make_block():
 def inference(frames,feature_size,_dropout):
 	global IS_TRAIN
 	IS_TRAIN = True
-	depth = 1
+	len_depth = 1
+	list_depth = [1]*(3-len_depth) + [2]*len_depth
 
 	cnt=0
 	#print('input_shape:', frames.shape.as_list())
@@ -146,34 +147,34 @@ def inference(frames,feature_size,_dropout):
 	conv1_custom_bn_relu=tf.nn.relu(conv1_custom_bn)
 	#print('conv1_shape:', conv1_custom.shape.as_list())
 
-	x=tf.nn.max_pool3d(conv1_custom_bn_relu,[1,depth,3,3,1],strides=[1,depth,2,2,1],padding='SAME')
+	x=tf.nn.max_pool3d(conv1_custom_bn_relu,[1,1,3,3,1],strides=[1,1,2,2,1],padding='SAME')
 	#print('max3d_shape:', x.shape.as_list())
 	b1=make_block(x,64,3,64,cnt)
 	x=b1.infer()
 	#print('block_shape:', x.shape.as_list())
 	cnt=b1.cnt
    
-	x=tf.nn.max_pool3d(x,[1,depth,1,1,1],strides=[1,depth,1,1,1],padding='SAME')
+	x=tf.nn.max_pool3d(x,[1,list_depth[0],1,1,1],strides=[1,list_depth[0],1,1,1],padding='SAME')
 	#print('max3d_shape:', x.shape.as_list())
 	b2=make_block(x,128,4,256,cnt,stride=2)
 	x=b2.infer()
 	#print('block_shape:', x.shape.as_list())
 	cnt=b2.cnt
-	x=tf.nn.max_pool3d(x,[1,depth,1,1,1],strides=[1,depth,1,1,1],padding='SAME')
+	x=tf.nn.max_pool3d(x,[1,list_depth[1],1,1,1],strides=[1,list_depth[1],1,1,1],padding='SAME')
 	
 	#print('max3d_shape:', x.shape.as_list())
 	b3=make_block(x,256,6,512,cnt,stride=2)
 	x=b3.infer()
 	#print('block_shape:', x.shape.as_list())
 	cnt=b3.cnt
-	x=tf.nn.max_pool3d(x,[1,depth,1,1,1],strides=[1,depth,1,1,1],padding='SAME')
+	x=tf.nn.max_pool3d(x,[1,list_depth[2],1,1,1],strides=[1,list_depth[2],1,1,1],padding='SAME')
 	
 	#print('max3d_shape:', x.shape.as_list())
 	x=make_block(x,512,3,1024,cnt,stride=2).infer()
 
 	#print('block_shape:', x.shape.as_list())
 	#Caution:make sure avgpool on the input which has the same shape as kernelsize has been setted padding='VALID'
-	x=tf.nn.avg_pool3d(x,[1,depth,5,5,1],strides=[1,depth,1,1,1],padding='VALID')
+	x=tf.nn.avg_pool3d(x,[1,1,5,5,1],strides=[1,1,1,1,1],padding='VALID')
 	#print('avg2d_shape:', x.shape.as_list())
 
 	x=tf.reshape(x,shape=[-1,2048])
@@ -181,7 +182,7 @@ def inference(frames,feature_size,_dropout):
  
 	x=tf.nn.dropout(x,keep_prob=_dropout)
 	x=tf.layers.dense(x,feature_size,name='fc')
-	x=tf.reshape(x,shape=[-1,SEQ_LEN,feature_size])
+	x=tf.reshape(x,shape=[-1,NUM_FEAT,feature_size])
 	#print('fc_re_shape:', x.shape.as_list())
 
 	return x

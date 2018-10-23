@@ -58,14 +58,15 @@ class BatchGenerator(object):
 
                 # unzip lines to fields
                 images, targets = zip(*result)
-                images_left_pad, _ = zip(*left_pad)
+                images_left_pad, targets_left_pad = zip(*left_pad)
 
                 path_seq = np.stack(images_left_pad + images)
                 image_seq = self.decode_image(path_seq)
-                output.append((path_seq, image_seq, np.stack(targets)))
+                target_seq = np.stack(tuple([targets_left_pad[-1]]) + targets)
+                output.append((path_seq, image_seq, np.stack(target_seq)))
 
             output = list(zip(*output))
             output[0] = np.stack(output[0]) # batch_size x (LEFT_CONTEXT + seq_len)
             output[1] = np.stack(output[1]) # batch_size x (LEFT_CONTEXT + seq_len) x height x width x channel
-            output[2] = np.stack(output[2]) # batch_size x seq_len x OUTPUT_DIM
+            output[2] = np.stack(output[2]) # batch_size x (1 + seq_len) x OUTPUT_DIM
             return (output[0], output[1]), output[2]

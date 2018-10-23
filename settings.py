@@ -9,7 +9,7 @@
 
 # P3D Settings
 BLOCK_EXPANSION = 4
-NUM_GROUPS = 4
+NUM_GROUPS = 8
 
 # T3D Settings
 BN_SIZE=4  #Expansion rate for Bottleneck structure.
@@ -17,11 +17,11 @@ GROWTH_RATE=32 #Fixed number of out_channels for some layers.
 START_CHANNEL=64  #number of channels before entering first block structure.
 
 # Common Settings
-GPU_NUM = 1
+GPU_NUM = 4
 VISION_FEATURE_SIZE = 128
 CROP_SIZE=160
 SEQ_LEN = 5 
-BATCH_SIZE = 6
+BATCH_SIZE = 2
 LEFT_CONTEXT = 5
 LEARNING_RATE = 1e-5
 KEEP_PROB_TRAIN = 0.5

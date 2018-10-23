@@ -138,7 +138,9 @@ with graph.as_default():
                 # Reuse variables for the next tower.
                 # tf.get_variable_scope().reuse_variables()
 
-                varlist=tf.trainable_variables()       
+                varlist=tf.trainable_variables()
+                print("total param_size: ",np.sum([np.prod(v.get_shape().as_list()) for v in varlist])) 
+
                 grads = optimizer.compute_gradients(loss, varlist)
 
                 tower_grads.append(grads)
